@@ -1,5 +1,6 @@
 mod traceroute;
 mod args;
+mod protocols;
 
 use args::Config;
 
@@ -8,7 +9,8 @@ fn main() {
     init_logging();
     let config = parse_config();
 
-    traceroute::do_traceroute(config);
+    let protocol = protocols::IcmpTraceroute::new();
+    traceroute::do_traceroute(config, &protocol);
 }
 
 fn init_logging() {
