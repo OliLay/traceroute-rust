@@ -87,6 +87,7 @@ fn set_ttl(tx : &mut TransportSender, current_ttl : u8) {
 }
 
 fn print_reply(first: bool, current_ttl : u8, rtt : Duration, addr : IpAddr) {
+    // TODO: print reply not only if first, but also if different IP than prev reply
     if first {
         print!("\n  {}  {}  {:.3}ms", current_ttl, addr, rtt.as_secs_f32() * 1000.0)
     } else {
