@@ -4,6 +4,12 @@ Simple traceroute application using Rust and `pnet` for Raw socket access.
 
 Currently uses ICMP for traceroutes.
 
+## Build
+Build with
+```bash
+cargo build
+```
+
 ## Usage
 ```bash
 $ traceroute_rust --help
