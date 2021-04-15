@@ -8,7 +8,8 @@ use pnet::packet::icmp::IcmpTypes;
 use pnet::packet::icmp::echo_request::MutableEchoRequestPacket;
 use pnet::util::checksum;
 use pnet::packet::Packet;
-use std::net::IpAddr;
+use std::net::{IpAddr};
+use dns_lookup::lookup_host;
 use std::time::{Duration, Instant};
 
 enum ReceiveStatus {
@@ -18,13 +19,29 @@ enum ReceiveStatus {
     SuccessDestinationFound
 }
 
+fn resolve_address(addr: &String) -> IpAddr {
+    let ip : IpAddr = match addr.parse() {
+        Ok(parsed) => parsed,
+        Err(_) => {
+            debug!("Address is not an IP address, trying to resolve it.");
+
+            let resolved_dst = match lookup_host(addr) {
+                Ok(addrs) => addrs.into_iter().nth(0).unwrap(),
+                Err(_) => panic!("Given address is neither an IP nor an resolvable name!")
+            };
+
+            resolved_dst
+        }
+    };
+
+    ip
+}
 
 pub fn do_traceroute(config: Config) {
-    debug!("Starting traceroute...");
-    // TODO: resolve hostname and print here
-    println!("traceroute-rust to {} ({}), {} hops max", config.host, config.host, config.hops);
+    let dst = resolve_address(&config.host);
 
-    let dst = config.host.parse::<IpAddr>().unwrap();
+    println!("traceroute-rust to {} ({}), {} hops max", dst, config.host, config.hops);
+
     let (mut tx, mut rx) = open_socket();
 
     let mut current_ttl : u8 = 1;
