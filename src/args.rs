@@ -17,15 +17,16 @@ impl Config {
             .required(true)
             .index(1);
 
-        let hops_arg = Arg::with_name("hops")
+        let hops_arg = Arg::with_name("max-hop")
+            .short("m")
             .takes_value(true)
-            .help("Maximum hops (max. TTL).")
+            .help("set maximal hop count")
             .default_value("64");
     
         let app = app.arg(host_arg).arg(hops_arg);
         let matches = app.get_matches();
         let host = matches.value_of("host").expect("Please specify a host.");
-        let hops = matches.value_of("hops").unwrap();
+        let hops = matches.value_of("max-hop").unwrap();
 
 
         let config = Config { host: host.to_string(), hops: hops.parse::<u8>().unwrap() };
