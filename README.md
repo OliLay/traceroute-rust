@@ -11,20 +11,25 @@ cargo build
 ```
 
 ## Usage
+See the `--help` parameter:
 ```bash
-$ traceroute_rust --help
+$ ./traceroute_rust --help
 traceroute-rust 
 Simple traceroute implementation in Rust using pnet
 
 USAGE:
-    traceroute_rust <host> [hops]
+    traceroute_rust [OPTIONS] <host>
 
 FLAGS:
     -h, --help       Prints help information
     -V, --version    Prints version information
 
+OPTIONS:
+    -m <max-hop>        set maximal hop count [default: 64]
+    -M <type>           method ('icmp' or 'udp') for traceroute operations [default: icmp]
+
 ARGS:
     <host>    The host to perform traceroute to.
-    <hops>    Maximum hops (max. TTL). [default: 64]
+
 ```
 

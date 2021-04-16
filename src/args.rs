@@ -2,6 +2,7 @@ use clap::{App, Arg};
 
 pub enum Method {
     ICMP,
+    UDP,
 }
 
 pub struct Config {
@@ -29,10 +30,10 @@ impl Config {
 
     fn mode_arg<'a, 'b>() -> Arg<'a, 'b> {
         Arg::with_name("type")
-        .short("M")
-        .takes_value(true)
-        .help("use METHOD (currently only 'icmp') for traceroute operations, defaulting to 'icmp'")
-        .default_value("icmp")
+            .short("M")
+            .takes_value(true)
+            .help("method ('icmp' or 'udp') for traceroute operations")
+            .default_value("icmp")
     }
 
     pub fn parse() -> Self {
@@ -49,6 +50,7 @@ impl Config {
         let hops = matches.value_of("max-hop").unwrap();
         let method = match matches.value_of("type").unwrap() {
             "icmp" => Method::ICMP,
+            "udp" => Method::UDP,
             _ => panic!("Not an available method."),
         };
 

@@ -3,7 +3,9 @@ use super::protocols::{ReceiveStatus, TracerouteProtocol};
 use dns_lookup::lookup_host;
 use log::{debug, error, info};
 use pnet::transport::transport_channel;
+use pnet::transport::TransportChannelType::Layer4;
 use pnet::transport::{TransportChannelType, TransportReceiver, TransportSender};
+use pnet::{packet::ip::IpNextHeaderProtocols, transport::TransportProtocol::Ipv4};
 use std::io;
 use std::io::Write;
 use std::{net::IpAddr, time::Duration};
@@ -26,7 +28,7 @@ fn resolve_address(addr: &String) -> IpAddr {
     ip
 }
 
-pub fn do_traceroute(config: Config, protocol: &dyn TracerouteProtocol) {
+pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
     let dst = resolve_address(&config.host);
 
     println!(
@@ -91,13 +93,17 @@ pub fn do_traceroute(config: Config, protocol: &dyn TracerouteProtocol) {
 }
 
 fn open_socket(protocol: TransportChannelType) -> (TransportSender, TransportReceiver) {
-    return match transport_channel(4096, protocol) {
-        Ok((tx, rx)) => (tx, rx),
-        Err(e) => panic!(
-            "An error occurred when creating the transport channel: {}",
-            e
-        ),
+    let tx = match transport_channel(4096, protocol) {
+        Ok((tx, _)) => tx,
+        Err(e) => panic!("An error occurred when tx channel: {}", e),
     };
+
+    let rx = match transport_channel(4096, Layer4(Ipv4(IpNextHeaderProtocols::Icmp))) {
+        Ok((_, rx)) => rx,
+        Err(e) => panic!("An error occurred when rx channel: {}", e),
+    };
+
+    (tx, rx)
 }
 
 fn set_ttl(tx: &mut TransportSender, current_ttl: u8) {
