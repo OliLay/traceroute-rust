@@ -1,20 +1,26 @@
-use pnet::{packet::{ip::IpNextHeaderProtocols}, transport::{TransportChannelType, TransportProtocol::Ipv4, TransportReceiver, TransportSender, icmp_packet_iter}};
-use pnet::packet::icmp::IcmpTypes;
+use log::{debug, error};
 use pnet::packet::icmp::echo_request::MutableEchoRequestPacket;
-use pnet::util::checksum;
+use pnet::packet::icmp::IcmpTypes;
 use pnet::packet::Packet;
 use pnet::transport::TransportChannelType::Layer4;
-use std::net::{IpAddr};
-use log::{debug, error};
-use std::time::{Duration, Instant};
+use pnet::util::checksum;
+use pnet::{
+    packet::ip::IpNextHeaderProtocols,
+    transport::{
+        icmp_packet_iter, TransportChannelType, TransportProtocol::Ipv4, TransportReceiver,
+        TransportSender,
+    },
+};
 use rand::Rng;
+use std::net::IpAddr;
+use std::time::{Duration, Instant};
 
 #[derive(PartialEq)]
 pub enum ReceiveStatus {
     Timeout,
     Error,
     SuccessContinue,
-    SuccessDestinationFound
+    SuccessDestinationFound,
 }
 
 pub trait TracerouteProtocol {
@@ -22,19 +28,29 @@ pub trait TracerouteProtocol {
 
     fn send(&self, tx: &mut TransportSender, dst: IpAddr, current_seq: u16) -> Instant;
 
-    fn handle(&self,rx: &mut TransportReceiver, dst: IpAddr) -> (ReceiveStatus, Option<IpAddr>, Option<Instant>);
+    fn handle(
+        &self,
+        rx: &mut TransportReceiver,
+        dst: IpAddr,
+    ) -> (ReceiveStatus, Option<IpAddr>, Option<Instant>);
 }
 
 pub struct IcmpTraceroute {
-    identifier: u16
+    identifier: u16,
 }
 
 impl IcmpTraceroute {
     pub fn new() -> Self {
-        IcmpTraceroute {identifier: rand::thread_rng().gen::<u16>()}
+        IcmpTraceroute {
+            identifier: rand::thread_rng().gen::<u16>(),
+        }
     }
 
-    fn create_request<'packet>(&self, buffer: &'packet mut Vec<u8>, sequence_number: u16) -> MutableEchoRequestPacket<'packet> {
+    fn create_request<'packet>(
+        &self,
+        buffer: &'packet mut Vec<u8>,
+        sequence_number: u16,
+    ) -> MutableEchoRequestPacket<'packet> {
         use pnet::packet::icmp::echo_request::IcmpCodes;
 
         let mut packet = MutableEchoRequestPacket::new(buffer).unwrap();
@@ -69,7 +85,11 @@ impl TracerouteProtocol for IcmpTraceroute {
         return Instant::now();
     }
 
-    fn handle(&self,mut rx: &mut TransportReceiver,dst: IpAddr) -> (ReceiveStatus, Option<IpAddr>, Option<Instant>) {
+    fn handle(
+        &self,
+        mut rx: &mut TransportReceiver,
+        dst: IpAddr,
+    ) -> (ReceiveStatus, Option<IpAddr>, Option<Instant>) {
         let mut iter = icmp_packet_iter(&mut rx);
 
         return match iter.next_with_timeout(Duration::from_secs(2)) {

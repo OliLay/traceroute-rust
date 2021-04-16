@@ -1,9 +1,8 @@
-mod traceroute;
 mod args;
 mod protocols;
+mod traceroute;
 
 use args::Config;
-
 
 fn main() {
     init_logging();
