@@ -9,6 +9,7 @@ use log::{debug, error};
 use std::time::{Duration, Instant};
 use rand::Rng;
 
+#[derive(PartialEq)]
 pub enum ReceiveStatus {
     Timeout,
     Error,

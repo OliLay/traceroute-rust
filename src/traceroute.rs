@@ -1,10 +1,12 @@
 use super::protocols::{TracerouteProtocol, ReceiveStatus};
 use super::args::Config;
 use std::{net::IpAddr, time::Duration};
-use log::{debug, info};
+use log::{debug, info, error};
 use pnet::transport::{TransportChannelType, TransportReceiver, TransportSender};
 use pnet::transport::{transport_channel};
 use dns_lookup::lookup_host;
+use std::io;
+use std::io::Write;
 
 fn resolve_address(addr: &String) -> IpAddr {
     let ip : IpAddr = match addr.parse() {
@@ -37,23 +39,40 @@ pub fn do_traceroute(config: Config, protocol: &dyn TracerouteProtocol) {
 
     while !done {
         set_ttl(&mut tx, current_ttl);
+        print_ttl(current_ttl);
 
-        for i in 0..3 {
+        let mut prev_reply_addr : Option<IpAddr> = None;
+        for _ in 0..3 {
             let time_send = protocol.send(&mut tx, dst, current_seq);
-            let first = i == 0;
             
             let (status, reply_addr, time_receive_option) = protocol.handle(&mut rx, dst);
 
             match status {
-                ReceiveStatus::SuccessContinue => {
-                    print_reply(first, current_ttl, time_receive_option.unwrap() - time_send, reply_addr.unwrap())
-                }
-                ReceiveStatus::SuccessDestinationFound => {
-                    done = true;
-                    print_reply(first, current_ttl, time_receive_option.unwrap() - time_send, reply_addr.unwrap())
+                ReceiveStatus::SuccessContinue | ReceiveStatus::SuccessDestinationFound => {
+                    let reply_addr = reply_addr.unwrap();
+                    let rtt = time_receive_option.unwrap() - time_send;
+                    
+                    match prev_reply_addr {
+                        None => {
+                            print_reply_with_ip(reply_addr, rtt)
+                        },
+                        Some(prev_reply_addr) => {
+                            if prev_reply_addr == reply_addr {
+                                print_reply(rtt)
+                            } else {
+                                print_reply_with_ip(reply_addr, rtt)
+                            }
+                        }
+                    }
+
+                    prev_reply_addr = Some(reply_addr);
+
+                    if status == ReceiveStatus::SuccessDestinationFound {
+                        done = true;
+                    }
                 }
                 ReceiveStatus::Timeout => {
-                    print_timeout(first, current_ttl)
+                    print_timeout()
                 }
                 ReceiveStatus::Error => {}
             }
@@ -86,19 +105,33 @@ fn set_ttl(tx : &mut TransportSender, current_ttl : u8) {
     }
 }
 
-fn print_reply(first: bool, current_ttl : u8, rtt : Duration, addr : IpAddr) {
-    // TODO: print reply not only if first, but also if different IP than prev reply
-    if first {
-        print!("\n  {}  {}  {:.3}ms", current_ttl, addr, rtt.as_secs_f32() * 1000.0)
-    } else {
-        print!(" {:.3}ms", rtt.as_secs_f32() * 1000.0);
-    }   
+fn print_timeout() {
+    print!("  *");
+    flush_stdout();
 }
 
-fn print_timeout(first: bool, current_ttl : u8) {
-    if first {
-        print!("\n  {}  *  *", current_ttl)
-    } else {
-        print!("    *")
+fn print_ttl(current_ttl : u8) {
+    print!("\n  {}", current_ttl);
+    flush_stdout();
+}
+
+fn print_reply_with_ip(addr : IpAddr, rtt : Duration) {
+    print!("  {}  {:.3}ms", addr, duration_to_readable(rtt));
+    flush_stdout();
+}
+
+fn print_reply(rtt : Duration) {
+    print!("  {:.3}ms", duration_to_readable(rtt));
+    flush_stdout();
+}
+
+fn duration_to_readable(duration: Duration) -> f32 {
+    duration.as_secs_f32() * 1000.0
+}
+
+fn flush_stdout() {
+    match io::stdout().flush() {
+        Err(_) => error!("Could not flush stdout"),
+        Ok(_) => (),
     }
 }
