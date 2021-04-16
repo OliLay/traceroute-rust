@@ -2,7 +2,7 @@
 
 Simple traceroute application using Rust and `pnet` for Raw socket access.
 
-Currently uses ICMP for traceroutes.
+Currently supports ICMP as well as UDP for traceroutes.
 
 ## Build
 Build with
