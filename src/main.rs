@@ -3,12 +3,17 @@ mod protocols;
 mod traceroute;
 
 use args::Config;
+use protocols::IcmpTraceroute;
 
 fn main() {
     init_logging();
     let config = parse_config();
 
-    let protocol = protocols::IcmpTraceroute::new();
+
+    let protocol = match config.method {
+        args::Method::ICMP => IcmpTraceroute::new()
+    };
+
     traceroute::do_traceroute(config, &protocol);
 }
 
