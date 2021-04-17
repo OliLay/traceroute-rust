@@ -31,7 +31,7 @@ pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
         print_ttl(current_ttl);
 
         let mut prev_reply_addr: Option<IpAddr> = None;
-        for _ in 0..3 {
+        for _ in 0..config.tries {
             let time_send = protocol.send(&mut tx, dst, current_seq);
 
             let (status, reply_addr, time_receive_option) = protocol.handle(&mut rx, dst);
