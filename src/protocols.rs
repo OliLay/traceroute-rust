@@ -27,10 +27,11 @@ pub trait TracerouteProtocol {
         &self,
         mut rx: &mut TransportReceiver,
         dst: IpAddr,
+        wait_secs: u8,
     ) -> (ReceiveStatus, Option<IpAddr>, Option<Instant>) {
         let mut iter = icmp_packet_iter(&mut rx);
 
-        return match iter.next_with_timeout(Duration::from_secs(2)) {
+        return match iter.next_with_timeout(Duration::from_secs(wait_secs.into())) {
             Ok(None) => {
                 debug!("Timeout, no answer received.");
 

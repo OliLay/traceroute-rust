@@ -10,6 +10,7 @@ pub struct Config {
     pub hops: u8,
     pub method: Method,
     pub tries: u8,
+    pub wait_secs: u8,
     pub resolve_hostnames: bool,
 }
 
@@ -49,6 +50,15 @@ impl Config {
             .default_value("3")
     }
 
+    fn wait_arg<'a, 'b>() -> Arg<'a, 'b> {
+        Arg::with_name("WAIT_SECS")
+            .short("w")
+            .long("wait")
+            .takes_value(true)
+            .help("wait WAIT_SECS seconds for response")
+            .default_value("3")
+    }
+
     fn resolve_hostnames_arg<'a, 'b>() -> Arg<'a, 'b> {
         Arg::with_name("resolve-hostnames")
             .long("resolve-hostnames")
@@ -62,6 +72,7 @@ impl Config {
             .arg(Config::hops_arg())
             .arg(Config::mode_arg())
             .arg(Config::tries_arg())
+            .arg(Config::wait_arg())
             .arg(Config::resolve_hostnames_arg());
 
         let matches = app.get_matches();
@@ -73,6 +84,7 @@ impl Config {
             _ => panic!("Not an available method."),
         };
         let tries = matches.value_of("TRIES").unwrap();
+        let wait_secs = matches.value_of("WAIT_SECS").unwrap();
         let resolve_hostnames = matches.is_present("resolve-hostnames");
 
         let config = Config {
@@ -80,6 +92,7 @@ impl Config {
             hops: hops.parse::<u8>().unwrap(),
             method: method,
             tries: tries.parse::<u8>().unwrap(),
+            wait_secs: wait_secs.parse::<u8>().unwrap(),
             resolve_hostnames: resolve_hostnames
         };
 

@@ -34,7 +34,7 @@ pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
         for _ in 0..config.tries {
             let time_send = protocol.send(&mut tx, dst, current_seq);
 
-            let (status, reply_addr, time_receive_option) = protocol.handle(&mut rx, dst);
+            let (status, reply_addr, time_receive_option) = protocol.handle(&mut rx, dst, config.wait_secs);
 
             match status {
                 ReceiveStatus::SuccessContinue | ReceiveStatus::SuccessDestinationFound => {
