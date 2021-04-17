@@ -3,6 +3,7 @@ mod icmp;
 mod protocols;
 mod traceroute;
 mod udp;
+mod dns;
 
 use args::Config;
 use icmp::IcmpTraceroute;

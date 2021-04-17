@@ -9,6 +9,7 @@ pub struct Config {
     pub host: String,
     pub hops: u8,
     pub method: Method,
+    pub resolve_hostnames: bool,
 }
 
 impl Config {
@@ -36,14 +37,19 @@ impl Config {
             .default_value("icmp")
     }
 
+    fn resolve_hostnames_arg<'a, 'b>() -> Arg<'a, 'b> {
+        Arg::with_name("resolve-hostnames")
+            .long("resolve-hostnames")
+            .help("resolve hostnames")
+    }
+
     pub fn parse() -> Self {
         let app = App::new("traceroute-rust")
-            .about("Simple traceroute implementation in Rust using pnet");
-
-        let app = app
+            .about("Simple traceroute implementation in Rust using pnet")
             .arg(Config::host_arg())
             .arg(Config::hops_arg())
-            .arg(Config::mode_arg());
+            .arg(Config::mode_arg())
+            .arg(Config::resolve_hostnames_arg());
 
         let matches = app.get_matches();
         let host = matches.value_of("host").expect("Please specify a host.");
@@ -53,11 +59,13 @@ impl Config {
             "udp" => Method::UDP,
             _ => panic!("Not an available method."),
         };
+        let resolve_hostnames = matches.is_present("resolve-hostnames");
 
         let config = Config {
             host: host.to_string(),
             hops: hops.parse::<u8>().unwrap(),
             method: method,
+            resolve_hostnames: resolve_hostnames
         };
 
         config

@@ -1,7 +1,7 @@
 use super::args::Config;
 use super::protocols::{ReceiveStatus, TracerouteProtocol};
-use dns_lookup::lookup_host;
-use log::{debug, error, info};
+use super::dns::{hostname_to_ip, ip_to_hostname};
+use log::{error, info};
 use pnet::transport::transport_channel;
 use pnet::transport::TransportChannelType::Layer4;
 use pnet::transport::{TransportChannelType, TransportReceiver, TransportSender};
@@ -10,26 +10,10 @@ use std::io;
 use std::io::Write;
 use std::{net::IpAddr, time::Duration};
 
-fn resolve_address(addr: &String) -> IpAddr {
-    let ip: IpAddr = match addr.parse() {
-        Ok(parsed) => parsed,
-        Err(_) => {
-            debug!("Address is not an IP address, trying to resolve it.");
 
-            let resolved_dst = match lookup_host(addr) {
-                Ok(addrs) => addrs.into_iter().nth(0).unwrap(),
-                Err(_) => panic!("Given address is neither an IP nor an resolvable name!"),
-            };
-
-            resolved_dst
-        }
-    };
-
-    ip
-}
 
 pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
-    let dst = resolve_address(&config.host);
+    let dst = hostname_to_ip(&config.host);
 
     println!(
         "traceroute-rust to {} ({}), {} hops max",
@@ -58,12 +42,12 @@ pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
                     let rtt = time_receive_option.unwrap() - time_send;
 
                     match prev_reply_addr {
-                        None => print_reply_with_ip(reply_addr, rtt),
+                        None => print_reply_with_ip(reply_addr, rtt, config.resolve_hostnames),
                         Some(prev_reply_addr) => {
                             if prev_reply_addr == reply_addr {
                                 print_reply(rtt)
                             } else {
-                                print_reply_with_ip(reply_addr, rtt)
+                                print_reply_with_ip(reply_addr, rtt, config.resolve_hostnames)
                             }
                         }
                     }
@@ -95,12 +79,12 @@ pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
 fn open_socket(protocol: TransportChannelType) -> (TransportSender, TransportReceiver) {
     let tx = match transport_channel(4096, protocol) {
         Ok((tx, _)) => tx,
-        Err(e) => panic!("An error occurred when tx channel: {}", e),
+        Err(e) => panic!("An error occurred when creating tx channel: {}", e),
     };
 
     let rx = match transport_channel(4096, Layer4(Ipv4(IpNextHeaderProtocols::Icmp))) {
         Ok((_, rx)) => rx,
-        Err(e) => panic!("An error occurred when rx channel: {}", e),
+        Err(e) => panic!("An error occurred when creating rx channel: {}", e),
     };
 
     (tx, rx)
@@ -123,8 +107,17 @@ fn print_ttl(current_ttl: u8) {
     flush_stdout();
 }
 
-fn print_reply_with_ip(addr: IpAddr, rtt: Duration) {
-    print!("  {}  {:.3}ms", addr, duration_to_readable(rtt));
+fn print_reply_with_ip(addr: IpAddr, rtt: Duration, resolve_hostnames: bool) {
+    if resolve_hostnames {
+        let hostname = match ip_to_hostname(&addr) {
+            Some(hostname) => hostname,
+            None => addr.to_string()
+        };
+        print!("  {} ({})  {:.3}ms", addr, hostname, duration_to_readable(rtt));
+    } else {
+        print!("  {}  {:.3}ms", addr, duration_to_readable(rtt));
+    }
+
     flush_stdout();
 }
 
