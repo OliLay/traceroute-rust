@@ -9,11 +9,13 @@ use pnet::{
 use std::net::IpAddr;
 use std::time::Instant;
 
-pub struct UdpTraceroute {}
+pub struct UdpTraceroute {
+    port: u16
+}
 
 impl UdpTraceroute {
-    pub fn new() -> Self {
-        UdpTraceroute {}
+    pub fn new(port: u16) -> Self {
+        UdpTraceroute {port: port}
     }
 
     fn create_request<'packet>(
@@ -24,7 +26,7 @@ impl UdpTraceroute {
         let mut packet = MutableUdpPacket::new(buffer).unwrap();
 
         packet.set_source(20000);
-        packet.set_destination(33434);
+        packet.set_destination(self.port);
         packet.set_length(8);
         packet.set_checksum(0);
 

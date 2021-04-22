@@ -16,7 +16,7 @@ fn main() {
 
     let protocol: Box<dyn TracerouteProtocol> = match config.method {
         args::Method::ICMP => Box::new(IcmpTraceroute::new()),
-        args::Method::UDP => Box::new(UdpTraceroute::new()),
+        args::Method::UDP => Box::new(UdpTraceroute::new(config.port)),
     };
 
     traceroute::do_traceroute(config, protocol);

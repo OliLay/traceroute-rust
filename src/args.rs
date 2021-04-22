@@ -11,6 +11,8 @@ pub struct Config {
     pub method: Method,
     pub tries: u8,
     pub wait_secs: u8,
+    pub port: u16,
+    pub first_hop_ttl: u8,
     pub resolve_hostnames: bool,
 }
 
@@ -59,6 +61,24 @@ impl Config {
             .default_value("3")
     }
 
+    fn port_arg<'a, 'b>() -> Arg<'a, 'b> {
+        Arg::with_name("PORT")
+            .short("p")
+            .long("port")
+            .takes_value(true)
+            .help("use destination PORT port (UDP, TCP)")
+            .default_value("33434")
+    }
+
+    fn first_hop_arg<'a, 'b>() -> Arg<'a, 'b> {
+        Arg::with_name("FIRST_HOP")
+            .short("f")
+            .long("first-hop")
+            .takes_value(true)
+            .help("set initial hop distance, i.e., time-to-live")
+            .default_value("1")
+    }
+
     fn resolve_hostnames_arg<'a, 'b>() -> Arg<'a, 'b> {
         Arg::with_name("resolve-hostnames")
             .long("resolve-hostnames")
@@ -73,6 +93,8 @@ impl Config {
             .arg(Config::mode_arg())
             .arg(Config::tries_arg())
             .arg(Config::wait_arg())
+            .arg(Config::port_arg())
+            .arg(Config::first_hop_arg())
             .arg(Config::resolve_hostnames_arg());
 
         let matches = app.get_matches();
@@ -85,6 +107,8 @@ impl Config {
         };
         let tries = matches.value_of("TRIES").unwrap();
         let wait_secs = matches.value_of("WAIT_SECS").unwrap();
+        let port = matches.value_of("PORT").unwrap();
+        let first_hop = matches.value_of("FIRST_HOP").unwrap();
         let resolve_hostnames = matches.is_present("resolve-hostnames");
 
         let config = Config {
@@ -93,6 +117,8 @@ impl Config {
             method: method,
             tries: tries.parse::<u8>().unwrap(),
             wait_secs: wait_secs.parse::<u8>().unwrap(),
+            port: port.parse::<u16>().unwrap(),
+            first_hop_ttl: first_hop.parse::<u8>().unwrap(),
             resolve_hostnames: resolve_hostnames
         };
 

@@ -22,7 +22,7 @@ pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
 
     let (mut tx, mut rx) = open_socket(protocol.get_protocol());
 
-    let mut current_ttl: u8 = 1;
+    let mut current_ttl: u8 = config.first_hop_ttl;
     let mut current_seq: u16 = 0;
     let mut done = false;
 
