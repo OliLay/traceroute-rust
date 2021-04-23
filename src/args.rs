@@ -3,6 +3,7 @@ use clap::{App, Arg};
 pub enum Method {
     ICMP,
     UDP,
+    TCP
 }
 
 pub struct Config {
@@ -103,6 +104,7 @@ impl Config {
         let method = match matches.value_of("METHOD").unwrap() {
             "icmp" => Method::ICMP,
             "udp" => Method::UDP,
+            "tcp" => Method::TCP,
             _ => panic!("Not an available method."),
         };
         let tries = matches.value_of("TRIES").unwrap();

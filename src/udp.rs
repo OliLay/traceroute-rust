@@ -20,8 +20,7 @@ impl UdpTraceroute {
 
     fn create_request<'packet>(
         &self,
-        buffer: &'packet mut Vec<u8>,
-        _sequence_number: u16,
+        buffer: &'packet mut Vec<u8>
     ) -> MutableUdpPacket<'packet> {
         let mut packet = MutableUdpPacket::new(buffer).unwrap();
 
@@ -43,9 +42,9 @@ impl TracerouteProtocol for UdpTraceroute {
         Layer4(Ipv4(IpNextHeaderProtocols::Udp))
     }
 
-    fn send(&self, tx: &mut TransportSender, dst: IpAddr, current_seq: u16) -> Instant {
+    fn send(&self, tx: &mut TransportSender, dst: IpAddr, _current_seq: u16) -> Instant {
         let mut buffer = self.create_buffer();
-        let udp_packet = self.create_request(&mut buffer, current_seq);
+        let udp_packet = self.create_request(&mut buffer);
 
         tx.send_to(udp_packet, dst).unwrap();
 
