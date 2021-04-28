@@ -6,37 +6,45 @@ use pnet::packet::udp::MutableUdpPacket;
 use pnet::transport::TransportChannelType::Layer4;
 use pnet::{
     packet::ip::IpNextHeaderProtocols,
-    transport::{TransportChannelType, TransportProtocol::Ipv4, TransportSender, TransportReceiver},
+    transport::{
+        TransportChannelType, TransportProtocol::Ipv4, TransportReceiver, TransportSender,
+    },
 };
+use rand::Rng;
 use std::net::IpAddr;
 use std::time::Instant;
 
 pub struct UdpTraceroute {
-    port: u16,
-    channels: MinimumChannels
+    src_port: u16,
+    dst_port: u16,
+    channels: MinimumChannels,
 }
 
 impl UdpTraceroute {
-    pub fn new(port: u16) -> Self {
-        UdpTraceroute {port: port, channels: MinimumChannels::new()}
+    pub fn new(dst_port: u16) -> Self {
+        UdpTraceroute {
+            src_port: rand::thread_rng().gen_range(30000..40000),
+            dst_port: dst_port,
+            channels: MinimumChannels::new(),
+        }
     }
 
-    fn create_request<'packet>(
-        &self,
-        buffer: &'packet mut Vec<u8>
-    ) -> MutableUdpPacket<'packet> {
+    fn create_request<'packet>(&self, buffer: &'packet mut Vec<u8>) -> MutableUdpPacket<'packet> {
         let mut packet = MutableUdpPacket::new(buffer).unwrap();
 
-        packet.set_source(20000);
-        packet.set_destination(self.port);
-        packet.set_length(8);
+        packet.set_source(self.src_port);
+        packet.set_destination(self.dst_port);
+        packet.set_length(17);
         packet.set_checksum(0);
+
+        let payload: [u8; 9] = [b'S', b'U', b'P', b'E', b'R', b'M', b'A', b'N', 0x00];
+        packet.set_payload(&payload);
 
         packet
     }
 
     fn create_buffer(&self) -> Vec<u8> {
-        vec![0; 8]
+        vec![0; 17]
     }
 }
 
