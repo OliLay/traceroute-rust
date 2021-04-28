@@ -1,6 +1,7 @@
 use super::protocols::TracerouteProtocol;
+use super::protocols::MinimumChannels;
 
-use pnet::packet::icmp::echo_request::MutableEchoRequestPacket;
+use pnet::{packet::icmp::echo_request::MutableEchoRequestPacket, transport::TransportReceiver};
 use pnet::packet::icmp::IcmpTypes;
 use pnet::packet::Packet;
 use pnet::transport::TransportChannelType::Layer4;
@@ -15,12 +16,14 @@ use std::time::Instant;
 
 pub struct IcmpTraceroute {
     identifier: u16,
+    channels: MinimumChannels
 }
 
 impl IcmpTraceroute {
     pub fn new() -> Self {
         IcmpTraceroute {
             identifier: rand::thread_rng().gen::<u16>(),
+            channels: MinimumChannels::new()
         }
     }
 
@@ -54,10 +57,18 @@ impl TracerouteProtocol for IcmpTraceroute {
         Layer4(Ipv4(IpNextHeaderProtocols::Icmp))
     }
 
-    fn send(&self, tx: &mut TransportSender, dst: IpAddr, current_seq: u16) -> Instant {
+    fn open(&self) {
+        let (tx_icmp, _, rx_icmp) = self.create_channels();
+
+        self.channels.tx = Some(tx_icmp);
+        self.channels.rx_icmp = Some(rx_icmp);
+    }
+
+    fn send(&self, dst: IpAddr, current_seq: u16) -> Instant {
         let mut buffer = self.create_buffer();
         let icmp_packet = self.create_request(&mut buffer, current_seq);
 
+        let mut tx = self.get_tx();
         tx.send_to(icmp_packet, dst).unwrap();
 
         return Instant::now();
@@ -65,5 +76,13 @@ impl TracerouteProtocol for IcmpTraceroute {
 
     fn get_destination_reached_icmp_type(&self) -> pnet::packet::icmp::IcmpType {
         IcmpTypes::EchoReply
+    }
+
+    fn get_rx(&self) -> &mut TransportReceiver {
+        self.channels.rx_icmp.as_mut().unwrap()
+    }
+
+    fn get_tx(&self) -> &mut TransportSender {
+        &mut self.channels.tx.as_mut().unwrap()
     }
 }

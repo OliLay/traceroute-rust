@@ -1,21 +1,24 @@
+use crate::protocols::MinimumChannels;
+
 use super::protocols::TracerouteProtocol;
 use pnet::packet::icmp::IcmpTypes;
 use pnet::packet::udp::MutableUdpPacket;
 use pnet::transport::TransportChannelType::Layer4;
 use pnet::{
     packet::ip::IpNextHeaderProtocols,
-    transport::{TransportChannelType, TransportProtocol::Ipv4, TransportSender},
+    transport::{TransportChannelType, TransportProtocol::Ipv4, TransportSender, TransportReceiver},
 };
 use std::net::IpAddr;
 use std::time::Instant;
 
 pub struct UdpTraceroute {
-    port: u16
+    port: u16,
+    channels: MinimumChannels
 }
 
 impl UdpTraceroute {
     pub fn new(port: u16) -> Self {
-        UdpTraceroute {port: port}
+        UdpTraceroute {port: port, channels: MinimumChannels::new()}
     }
 
     fn create_request<'packet>(
@@ -42,16 +45,31 @@ impl TracerouteProtocol for UdpTraceroute {
         Layer4(Ipv4(IpNextHeaderProtocols::Udp))
     }
 
-    fn send(&self, tx: &mut TransportSender, dst: IpAddr, _current_seq: u16) -> Instant {
+    fn send(&self, dst: IpAddr, _current_seq: u16) -> Instant {
         let mut buffer = self.create_buffer();
         let udp_packet = self.create_request(&mut buffer);
 
-        tx.send_to(udp_packet, dst).unwrap();
+        self.get_tx().send_to(udp_packet, dst).unwrap();
 
         return Instant::now();
     }
 
     fn get_destination_reached_icmp_type(&self) -> pnet::packet::icmp::IcmpType {
         IcmpTypes::DestinationUnreachable
+    }
+
+    fn get_rx(&self) -> &mut TransportReceiver {
+        self.channels.rx_icmp.as_mut().unwrap()
+    }
+
+    fn get_tx(&self) -> &mut TransportSender {
+        &mut self.channels.tx.as_mut().unwrap()
+    }
+
+    fn open(&self) {
+        let (tx_udp, _, rx_icmp) = self.create_channels();
+
+        self.channels.tx = Some(tx_udp);
+        self.channels.rx_icmp = Some(rx_icmp);
     }
 }

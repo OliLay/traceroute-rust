@@ -20,26 +20,26 @@ pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
         dst, config.host, config.hops
     );
 
-    let (mut tx, mut rx) = open_socket(protocol.get_protocol());
+    protocol.open();
 
     let mut current_ttl: u8 = config.first_hop_ttl;
     let mut current_seq: u16 = 0;
     let mut done = false;
 
     while !done {
-        set_ttl(&mut tx, current_ttl);
+        protocol.set_ttl(current_ttl);
         print_ttl(current_ttl);
 
         let mut prev_reply_addr: Option<IpAddr> = None;
         for _ in 0..config.tries {
-            let time_send = protocol.send(&mut tx, dst, current_seq);
+            let time_send = protocol.send(dst, current_seq);
 
-            let (status, reply_addr, time_receive_option) = protocol.handle(&mut rx, dst, config.wait_secs);
+            let result = protocol.handle(dst, config.wait_secs);
 
-            match status {
+            match result.status {
                 ReceiveStatus::SuccessContinue | ReceiveStatus::SuccessDestinationFound => {
-                    let reply_addr = reply_addr.unwrap();
-                    let rtt = time_receive_option.unwrap() - time_send;
+                    let reply_addr = result.metadata.unwrap().addr;
+                    let rtt = result.metadata.unwrap().time_receive - time_send;
 
                     match prev_reply_addr {
                         None => print_reply_with_ip(reply_addr, rtt, config.resolve_hostnames),
@@ -54,7 +54,7 @@ pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
 
                     prev_reply_addr = Some(reply_addr);
 
-                    if status == ReceiveStatus::SuccessDestinationFound {
+                    if result.status == ReceiveStatus::SuccessDestinationFound {
                         done = true;
                     }
                 }
@@ -74,27 +74,6 @@ pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
     }
 
     print!("\n")
-}
-
-fn open_socket(protocol: TransportChannelType) -> (TransportSender, TransportReceiver) {
-    let tx = match transport_channel(4096, protocol) {
-        Ok((tx, _)) => tx,
-        Err(e) => panic!("An error occurred when creating tx channel: {}", e),
-    };
-
-    let rx = match transport_channel(4096, Layer4(Ipv4(IpNextHeaderProtocols::Icmp))) {
-        Ok((_, rx)) => rx,
-        Err(e) => panic!("An error occurred when creating rx channel: {}", e),
-    };
-
-    (tx, rx)
-}
-
-fn set_ttl(tx: &mut TransportSender, current_ttl: u8) {
-    match tx.set_ttl(current_ttl) {
-        Ok(_) => (),
-        Err(e) => panic!("Could not set TTL on outgoing ICMP request.\n{}", e),
-    }
 }
 
 fn print_timeout() {
