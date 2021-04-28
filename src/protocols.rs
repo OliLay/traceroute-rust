@@ -51,14 +51,14 @@ pub struct AnswerMetadata {
 pub trait TracerouteProtocol {
     fn get_protocol(&self) -> TransportChannelType;
 
-    fn get_rx(&self) -> &mut TransportReceiver;
+    fn get_rx(&mut self) -> &mut TransportReceiver;
 
-    fn get_tx(&self) -> &mut TransportSender;
+    fn get_tx(&mut self) -> &mut TransportSender;
 
-    fn open(&self);
+    fn open(&mut self);
 
-    fn set_ttl(&self, ttl: u8) {
-        self.get_tx().set_ttl(ttl);
+    fn set_ttl(&mut self, ttl: u8) {
+        self.get_tx().set_ttl(ttl).unwrap();
     }
 
     fn create_channels(&self) -> (TransportSender, TransportReceiver, TransportReceiver) {
@@ -75,24 +75,20 @@ pub trait TracerouteProtocol {
         (tx_protocol, rx_protocol, rx_icmp)
     }
 
-    fn send(&self, dst: IpAddr, current_seq: u16) -> Instant;
+    fn send(&mut self, dst: IpAddr, current_seq: u16) -> Instant;
 
     fn get_destination_reached_icmp_type(&self) -> IcmpType;
 
-    fn handle_protocol_level(&self) -> Option<Result> {
+    fn handle_protocol_level(&mut self, _dst: IpAddr) -> Option<Result> {
         None
     }
 
-    fn handle_icmp_level(&self, dst: IpAddr, wait_secs: u8) -> Result {
-        let mut rx = self.get_rx();
+    fn handle_icmp_level(&mut self, dst: IpAddr) -> Option<Result> {
+        let rx = self.get_rx();
         let mut iter = icmp_packet_iter(rx);
 
-        return match iter.next_with_timeout(Duration::from_secs(wait_secs.into())) {
-            Ok(None) => {
-                debug!("Timeout, no answer received.");
-
-                Result::new_empty(ReceiveStatus::Timeout)
-            }
+        return match iter.next_with_timeout(Duration::from_millis(1)) {
+            Ok(None) => None,
             Ok(Some((packet, addr))) => {
                 let time_receive = Instant::now();
                 let mut destination_found = false;
@@ -106,36 +102,45 @@ pub trait TracerouteProtocol {
                 match icmp_type {
                     _ if icmp_type == icmp_destination_type => {
                         if destination_found {
-                            Result::new_filled(
+                            Some(Result::new_filled(
                                 ReceiveStatus::SuccessDestinationFound,
                                 addr,
                                 time_receive,
-                            )
+                            ))
                         } else {
-                            Result::new_empty(ReceiveStatus::Error)
+                            Some(Result::new_empty(ReceiveStatus::Error))
                         }
                     }
                     IcmpTypes::TimeExceeded => {
-                        Result::new_filled(ReceiveStatus::SuccessContinue, addr, time_receive)
+                        Some(Result::new_filled(ReceiveStatus::SuccessContinue, addr, time_receive))
                     }
                     _ => {
                         error!("Received ICMP packet, but type is '{:?}'", icmp_type);
-                        Result::new_empty(ReceiveStatus::Error)
+                        Some(Result::new_empty(ReceiveStatus::Error))
                     }
                 }
             }
-            Err(err) => {
-                error!("Could not receive packet: {}", err);
-                Result::new_empty(ReceiveStatus::Error)
+            Err(_) => {
+                None
             }
         };
     }
 
-    fn handle(&self, dst: IpAddr, wait_secs: u8) -> Result {
-        match self.handle_protocol_level() {
-            Some(result) => result,
-            None => self.handle_icmp_level(dst, wait_secs),
+    fn handle(&mut self, dst: IpAddr, wait_secs: u8) -> Result {
+        let time_begin = Instant::now();
+
+        while Instant::now() - time_begin < Duration::from_secs(wait_secs.into()) {
+            let result = match self.handle_protocol_level(dst) {
+                None => self.handle_icmp_level(dst),
+                Some(result) => Some(result)
+            };
+
+            if result.is_some() {
+                return result.unwrap()
+            }
         }
+
+        return Result::new_empty(ReceiveStatus::Timeout)
     }
 }
 pub struct MinimumChannels {

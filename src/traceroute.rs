@@ -2,17 +2,12 @@ use super::args::Config;
 use super::protocols::{ReceiveStatus, TracerouteProtocol};
 use super::dns::{hostname_to_ip, ip_to_hostname};
 use log::{error, info};
-use pnet::transport::transport_channel;
-use pnet::transport::TransportChannelType::Layer4;
-use pnet::transport::{TransportChannelType, TransportReceiver, TransportSender};
-use pnet::{packet::ip::IpNextHeaderProtocols, transport::TransportProtocol::Ipv4};
 use std::io;
 use std::io::Write;
 use std::{net::IpAddr, time::Duration};
 
 
-
-pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
+pub fn do_traceroute(config: Config, mut protocol: Box<dyn TracerouteProtocol>) {
     let dst = hostname_to_ip(&config.host);
 
     println!(
@@ -38,8 +33,9 @@ pub fn do_traceroute(config: Config, protocol: Box<dyn TracerouteProtocol>) {
 
             match result.status {
                 ReceiveStatus::SuccessContinue | ReceiveStatus::SuccessDestinationFound => {
-                    let reply_addr = result.metadata.unwrap().addr;
-                    let rtt = result.metadata.unwrap().time_receive - time_send;
+                    let metadata = result.metadata.unwrap();
+                    let reply_addr = metadata.addr;
+                    let rtt = metadata.time_receive - time_send;
 
                     match prev_reply_addr {
                         None => print_reply_with_ip(reply_addr, rtt, config.resolve_hostnames),

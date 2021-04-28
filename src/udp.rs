@@ -45,7 +45,7 @@ impl TracerouteProtocol for UdpTraceroute {
         Layer4(Ipv4(IpNextHeaderProtocols::Udp))
     }
 
-    fn send(&self, dst: IpAddr, _current_seq: u16) -> Instant {
+    fn send(&mut self, dst: IpAddr, _current_seq: u16) -> Instant {
         let mut buffer = self.create_buffer();
         let udp_packet = self.create_request(&mut buffer);
 
@@ -58,15 +58,15 @@ impl TracerouteProtocol for UdpTraceroute {
         IcmpTypes::DestinationUnreachable
     }
 
-    fn get_rx(&self) -> &mut TransportReceiver {
+    fn get_rx(&mut self) -> &mut TransportReceiver {
         self.channels.rx_icmp.as_mut().unwrap()
     }
 
-    fn get_tx(&self) -> &mut TransportSender {
-        &mut self.channels.tx.as_mut().unwrap()
+    fn get_tx(&mut self) -> &mut TransportSender {
+        self.channels.tx.as_mut().unwrap()
     }
 
-    fn open(&self) {
+    fn open(&mut self) {
         let (tx_udp, _, rx_icmp) = self.create_channels();
 
         self.channels.tx = Some(tx_udp);

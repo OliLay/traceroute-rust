@@ -57,19 +57,18 @@ impl TracerouteProtocol for IcmpTraceroute {
         Layer4(Ipv4(IpNextHeaderProtocols::Icmp))
     }
 
-    fn open(&self) {
+    fn open(&mut self) {
         let (tx_icmp, _, rx_icmp) = self.create_channels();
 
         self.channels.tx = Some(tx_icmp);
         self.channels.rx_icmp = Some(rx_icmp);
     }
 
-    fn send(&self, dst: IpAddr, current_seq: u16) -> Instant {
+    fn send(&mut self, dst: IpAddr, current_seq: u16) -> Instant {
         let mut buffer = self.create_buffer();
         let icmp_packet = self.create_request(&mut buffer, current_seq);
 
-        let mut tx = self.get_tx();
-        tx.send_to(icmp_packet, dst).unwrap();
+        self.get_tx().send_to(icmp_packet, dst).unwrap();
 
         return Instant::now();
     }
@@ -78,11 +77,11 @@ impl TracerouteProtocol for IcmpTraceroute {
         IcmpTypes::EchoReply
     }
 
-    fn get_rx(&self) -> &mut TransportReceiver {
+    fn get_rx(&mut self) -> &mut TransportReceiver {
         self.channels.rx_icmp.as_mut().unwrap()
     }
 
-    fn get_tx(&self) -> &mut TransportSender {
-        &mut self.channels.tx.as_mut().unwrap()
+    fn get_tx(&mut self) -> &mut TransportSender {
+        self.channels.tx.as_mut().unwrap()
     }
 }
