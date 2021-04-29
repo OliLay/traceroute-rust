@@ -1,7 +1,7 @@
 use crate::protocols::MinimumChannels;
 
 use super::protocols::TracerouteProtocol;
-use pnet::packet::icmp::IcmpTypes;
+use pnet::packet::icmp::{IcmpType, IcmpTypes};
 use pnet::packet::udp::MutableUdpPacket;
 use pnet::transport::TransportChannelType::Layer4;
 use pnet::{
@@ -62,8 +62,8 @@ impl TracerouteProtocol for UdpTraceroute {
         return Instant::now();
     }
 
-    fn get_destination_reached_icmp_type(&self) -> pnet::packet::icmp::IcmpType {
-        IcmpTypes::DestinationUnreachable
+    fn get_destination_reached_icmp_type(&self) -> Option<IcmpType> {
+        Some(IcmpTypes::DestinationUnreachable)
     }
 
     fn get_rx(&mut self) -> &mut TransportReceiver {

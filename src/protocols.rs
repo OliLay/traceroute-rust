@@ -77,7 +77,9 @@ pub trait TracerouteProtocol {
 
     fn send(&mut self, dst: IpAddr, current_seq: u16) -> Instant;
 
-    fn get_destination_reached_icmp_type(&self) -> IcmpType;
+    fn get_destination_reached_icmp_type(&self) -> Option<IcmpType> {
+        None
+    }
 
     fn handle_protocol_level(&mut self, _dst: IpAddr) -> Option<Result> {
         None
@@ -100,7 +102,7 @@ pub trait TracerouteProtocol {
                 let icmp_type = packet.get_icmp_type();
                 let icmp_destination_type = self.get_destination_reached_icmp_type();
                 match icmp_type {
-                    _ if icmp_type == icmp_destination_type => {
+                    _ if icmp_destination_type.is_some() && icmp_type == icmp_destination_type.unwrap() => {
                         if destination_found {
                             Some(Result::new_filled(
                                 ReceiveStatus::SuccessDestinationFound,

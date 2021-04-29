@@ -1,7 +1,7 @@
 use super::protocols::TracerouteProtocol;
 use super::protocols::MinimumChannels;
 
-use pnet::{packet::icmp::echo_request::MutableEchoRequestPacket, transport::TransportReceiver};
+use pnet::{packet::icmp::{IcmpType, echo_request::MutableEchoRequestPacket}, transport::TransportReceiver};
 use pnet::packet::icmp::IcmpTypes;
 use pnet::packet::Packet;
 use pnet::transport::TransportChannelType::Layer4;
@@ -73,8 +73,8 @@ impl TracerouteProtocol for IcmpTraceroute {
         return Instant::now();
     }
 
-    fn get_destination_reached_icmp_type(&self) -> pnet::packet::icmp::IcmpType {
-        IcmpTypes::EchoReply
+    fn get_destination_reached_icmp_type(&self) -> Option<IcmpType> {
+        Some(IcmpTypes::EchoReply)
     }
 
     fn get_rx(&mut self) -> &mut TransportReceiver {

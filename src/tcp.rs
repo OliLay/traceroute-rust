@@ -3,7 +3,6 @@ use super::protocols::{MinimumChannels, ReceiveStatus, Result, TracerouteProtoco
 use log::{debug, warn};
 use pnet::{
     packet::{
-        icmp::{IcmpType, IcmpTypes},
         ip::IpNextHeaderProtocols,
         tcp::{ipv4_checksum, MutableTcpPacket, TcpFlags},
     },
@@ -93,10 +92,6 @@ impl TracerouteProtocol for TcpTraceroute {
         self.get_tx().send_to(tcp_packet, dst).unwrap();
 
         return Instant::now();
-    }
-
-    fn get_destination_reached_icmp_type(&self) -> IcmpType {
-        IcmpTypes::DestinationUnreachable
     }
 
     fn get_rx(&mut self) -> &mut TransportReceiver {
