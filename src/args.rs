@@ -40,7 +40,7 @@ impl Config {
             .short("M")
             .long("type")
             .takes_value(true)
-            .help("method ('icmp' or 'udp') for traceroute operations")
+            .help("method ('icmp', 'udp' or 'tcp') for traceroute operations")
             .default_value("icmp")
     }
 
