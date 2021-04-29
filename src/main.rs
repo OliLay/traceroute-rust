@@ -5,6 +5,7 @@ mod traceroute;
 mod udp;
 mod tcp;
 mod dns;
+mod interfaces;
 
 use args::Config;
 use icmp::IcmpTraceroute;

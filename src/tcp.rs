@@ -1,20 +1,23 @@
+use super::interfaces::{addr_to_ipv4_addr, get_source_ip};
 use super::protocols::{MinimumChannels, ReceiveStatus, Result, TracerouteProtocol};
 use log::{debug, warn};
-use pnet::packet::icmp::IcmpTypes;
-use pnet::transport::TransportChannelType::Layer4;
 use pnet::{
-    packet::ip::IpNextHeaderProtocols,
+    packet::{
+        icmp::{IcmpType, IcmpTypes},
+        ip::IpNextHeaderProtocols,
+        tcp::{ipv4_checksum, MutableTcpPacket, TcpFlags},
+    },
     transport::{
-        TransportChannelType, TransportProtocol::Ipv4, TransportReceiver, TransportSender,
+        tcp_packet_iter, TransportChannelType, TransportChannelType::Layer4,
+        TransportProtocol::Ipv4, TransportReceiver, TransportSender,
     },
 };
-use pnet::{
-    packet::tcp::{MutableTcpPacket, TcpFlags},
-    transport::tcp_packet_iter,
-};
 use rand::Rng;
-use std::time::{Duration, Instant};
 use std::net::IpAddr;
+use std::{
+    net::Ipv4Addr,
+    time::{Duration, Instant},
+};
 
 pub struct TcpTraceroute {
     src_port: u16,
@@ -37,6 +40,7 @@ impl TcpTraceroute {
         &self,
         buffer: &'packet mut Vec<u8>,
         _sequence_number: u16,
+        dst: Ipv4Addr,
     ) -> MutableTcpPacket<'packet> {
         let mut packet = MutableTcpPacket::new(buffer).unwrap();
 
@@ -49,8 +53,9 @@ impl TcpTraceroute {
         packet.set_window(0);
         packet.set_urgent_ptr(0);
 
-        //let checksum = ipv4_checksum(&packet.to_immutable(), &src, &dst);
-        packet.set_checksum(0);
+        let source_ip = get_source_ip();
+        let checksum = ipv4_checksum(&packet.to_immutable(), &source_ip, &dst);
+        packet.set_checksum(checksum);
 
         packet
     }
@@ -58,8 +63,9 @@ impl TcpTraceroute {
     fn create_rst_packet<'packet>(
         &self,
         buffer: &'packet mut Vec<u8>,
+        dst: Ipv4Addr,
     ) -> MutableTcpPacket<'packet> {
-        let mut packet = self.create_request(buffer, 0);
+        let mut packet = self.create_request(buffer, 0, dst);
         packet.set_flags(TcpFlags::RST);
 
         packet
@@ -76,28 +82,20 @@ impl TcpTraceroute {
 
 impl TracerouteProtocol for TcpTraceroute {
     fn get_protocol(&self) -> TransportChannelType {
-        /*
-         TODO: listen also for TCP messages
-          This  method  uses well-known "half-open technique", which prevents ap-
-         plications on the destination host from seeing our probes at all.  Nor-
-         mally,  a tcp syn (DONE!) is sent. For non-listened ports we receive tcp reset,
-         and all is done. For active listening ports we receive tcp syn+ack, but
-         answer  by tcp reset (instead of expected tcp ack), this way the remote
-         tcp session is dropped even without the application ever taking notice.
-        */
         Layer4(Ipv4(IpNextHeaderProtocols::Tcp))
     }
 
     fn send(&mut self, dst: IpAddr, current_seq: u16) -> Instant {
         let mut buffer = self.create_buffer();
-        let tcp_packet = self.create_request(&mut buffer, current_seq);
+
+        let tcp_packet = self.create_request(&mut buffer, current_seq, addr_to_ipv4_addr(dst));
 
         self.get_tx().send_to(tcp_packet, dst).unwrap();
 
         return Instant::now();
     }
 
-    fn get_destination_reached_icmp_type(&self) -> pnet::packet::icmp::IcmpType {
+    fn get_destination_reached_icmp_type(&self) -> IcmpType {
         IcmpTypes::DestinationUnreachable
     }
 
@@ -128,20 +126,21 @@ impl TracerouteProtocol for TcpTraceroute {
                 if packet.get_destination() == src_port {
                     let time_receive = Instant::now();
 
-                    warn!("\naddr_tcp_rx: {}, port_tcp_rx {}\n", addr, packet.get_destination());
                     if addr == dst {
                         let flags = packet.get_flags();
-    
+
                         if flags == TcpFlags::SYN | TcpFlags::ACK {
                             debug!("Received SYN and ACK, sending RST. (half-open)");
-                            
+
                             let mut buffer = self.create_buffer();
-                            let rst_packet = self.create_rst_packet(&mut buffer);
+
+                            let rst_packet =
+                                self.create_rst_packet(&mut buffer, addr_to_ipv4_addr(dst));
                             self.get_tx().send_to(rst_packet, addr).unwrap();
                         } else if flags == TcpFlags::RST {
                             debug!("Received RST, no need to send RST myself.")
                         }
-    
+
                         Some(Result::new_filled(
                             ReceiveStatus::SuccessDestinationFound,
                             addr,
@@ -152,11 +151,14 @@ impl TracerouteProtocol for TcpTraceroute {
                         None
                     }
                 } else {
-                    warn!("Received packet not addressed to me but port {}", packet.get_destination());
+                    warn!(
+                        "Received packet not addressed to me but port {}",
+                        packet.get_destination()
+                    );
                     None
                 }
             }
-            Err(_) => None
+            Err(_) => None,
         };
     }
 }

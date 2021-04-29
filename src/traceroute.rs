@@ -1,11 +1,10 @@
 use super::args::Config;
-use super::protocols::{ReceiveStatus, TracerouteProtocol};
 use super::dns::{hostname_to_ip, ip_to_hostname};
+use super::protocols::{ReceiveStatus, TracerouteProtocol};
 use log::{error, info};
 use std::io;
 use std::io::Write;
 use std::{net::IpAddr, time::Duration};
-
 
 pub fn do_traceroute(config: Config, mut protocol: Box<dyn TracerouteProtocol>) {
     let dst = hostname_to_ip(&config.host);
@@ -86,9 +85,14 @@ fn print_reply_with_ip(addr: IpAddr, rtt: Duration, resolve_hostnames: bool) {
     if resolve_hostnames {
         let hostname = match ip_to_hostname(&addr) {
             Some(hostname) => hostname,
-            None => addr.to_string()
+            None => addr.to_string(),
         };
-        print!("  {} ({})  {:.3}ms", addr, hostname, duration_to_readable(rtt));
+        print!(
+            "  {} ({})  {:.3}ms",
+            addr,
+            hostname,
+            duration_to_readable(rtt)
+        );
     } else {
         print!("  {}  {:.3}ms", addr, duration_to_readable(rtt));
     }
