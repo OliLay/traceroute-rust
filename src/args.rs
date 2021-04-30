@@ -3,7 +3,7 @@ use clap::{App, Arg};
 pub enum Method {
     ICMP,
     UDP,
-    TCP
+    TCP,
 }
 
 pub struct Config {
@@ -121,7 +121,7 @@ impl Config {
             wait_secs: wait_secs.parse::<u8>().unwrap(),
             port: port.parse::<u16>().unwrap(),
             first_hop_ttl: first_hop.parse::<u8>().unwrap(),
-            resolve_hostnames: resolve_hostnames
+            resolve_hostnames: resolve_hostnames,
         };
 
         config

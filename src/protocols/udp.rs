@@ -1,6 +1,5 @@
-use crate::protocols::MinimumChannels;
-
-use super::protocols::TracerouteProtocol;
+use super::protocol::MinimumChannels;
+use super::protocol::TracerouteProtocol;
 use pnet::packet::icmp::{IcmpType, IcmpTypes};
 use pnet::packet::udp::MutableUdpPacket;
 use pnet::transport::TransportChannelType::Layer4;

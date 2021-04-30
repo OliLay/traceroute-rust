@@ -1,6 +1,6 @@
 use super::args::Config;
 use super::dns::{hostname_to_ip, ip_to_hostname};
-use super::protocols::{ReceiveStatus, TracerouteProtocol};
+use crate::protocols::protocol::{ReceiveStatus, TracerouteProtocol};
 use log::{error, info};
 use std::io;
 use std::io::Write;
@@ -27,8 +27,7 @@ pub fn do_traceroute(config: Config, mut protocol: Box<dyn TracerouteProtocol>) 
         let mut prev_reply_addr: Option<IpAddr> = None;
         for _ in 0..config.tries {
             let time_send = protocol.send(dst, current_seq);
-
-            let result = protocol.handle(dst, config.wait_secs);
+            let result = protocol.poll(dst, config.wait_secs);
 
             match result.status {
                 ReceiveStatus::SuccessContinue | ReceiveStatus::SuccessDestinationFound => {

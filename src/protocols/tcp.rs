@@ -1,5 +1,5 @@
-use super::interfaces::{addr_to_ipv4_addr, get_source_ip};
-use super::protocols::{MinimumChannels, ReceiveStatus, Result, TracerouteProtocol};
+use super::protocol::{MinimumChannels, ReceiveStatus, Result, TracerouteProtocol};
+use crate::interfaces::{addr_to_ipv4_addr, get_source_ip};
 use log::{debug, warn};
 use pnet::{
     packet::{
@@ -52,8 +52,7 @@ impl TcpTraceroute {
         packet.set_window(0);
         packet.set_urgent_ptr(0);
 
-        let source_ip = get_source_ip();
-        let checksum = ipv4_checksum(&packet.to_immutable(), &source_ip, &dst);
+        let checksum = ipv4_checksum(&packet.to_immutable(), &get_source_ip(), &dst);
         packet.set_checksum(checksum);
 
         packet
@@ -68,6 +67,13 @@ impl TcpTraceroute {
         packet.set_flags(TcpFlags::RST);
 
         packet
+    }
+
+    fn send_rst_packet(&mut self, dst: IpAddr) {
+        let mut buffer = self.create_buffer();
+
+        let rst_packet = self.create_rst_packet(&mut buffer, addr_to_ipv4_addr(dst));
+        &self.get_tx().send_to(rst_packet, dst).unwrap();
     }
 
     fn create_buffer(&mut self) -> Vec<u8> {
@@ -125,15 +131,9 @@ impl TracerouteProtocol for TcpTraceroute {
                         let flags = packet.get_flags();
 
                         if flags == TcpFlags::SYN | TcpFlags::ACK {
+                            // half-open technique
                             debug!("Received SYN and ACK, sending RST. (half-open)");
-
-                            let mut buffer = self.create_buffer();
-
-                            let rst_packet =
-                                self.create_rst_packet(&mut buffer, addr_to_ipv4_addr(dst));
-                            self.get_tx().send_to(rst_packet, addr).unwrap();
-                        } else if flags == TcpFlags::RST {
-                            debug!("Received RST, no need to send RST myself.")
+                            self.send_rst_packet(dst);
                         }
 
                         Some(Result::new_filled(

@@ -1,11 +1,17 @@
-use super::protocols::TracerouteProtocol;
-use super::protocols::MinimumChannels;
+use super::protocol::MinimumChannels;
+use super::protocol::ReceiveStatus;
+use super::protocol::Result;
+use super::protocol::TracerouteProtocol;
 
-use pnet::{packet::icmp::{IcmpType, echo_request::MutableEchoRequestPacket}, transport::TransportReceiver};
+use log::error;
 use pnet::packet::icmp::IcmpTypes;
 use pnet::packet::Packet;
 use pnet::transport::TransportChannelType::Layer4;
 use pnet::util::checksum;
+use pnet::{
+    packet::icmp::{echo_request::MutableEchoRequestPacket, IcmpPacket, IcmpType},
+    transport::TransportReceiver,
+};
 use pnet::{
     packet::ip::IpNextHeaderProtocols,
     transport::{TransportChannelType, TransportProtocol::Ipv4, TransportSender},
@@ -16,14 +22,14 @@ use std::time::Instant;
 
 pub struct IcmpTraceroute {
     identifier: u16,
-    channels: MinimumChannels
+    channels: MinimumChannels,
 }
 
 impl IcmpTraceroute {
     pub fn new() -> Self {
         IcmpTraceroute {
             identifier: rand::thread_rng().gen::<u16>(),
-            channels: MinimumChannels::new()
+            channels: MinimumChannels::new(),
         }
     }
 
@@ -83,5 +89,38 @@ impl TracerouteProtocol for IcmpTraceroute {
 
     fn get_tx(&mut self) -> &mut TransportSender {
         self.channels.tx.as_mut().unwrap()
+    }
+}
+
+pub fn process_icmp_message(
+    packet: IcmpPacket,
+    sender: IpAddr,
+    dst: IpAddr,
+    icmp_dest_reached_type: Option<IcmpType>,
+) -> Option<Result> {
+    let time_receive = Instant::now();
+
+    let icmp_type = packet.get_icmp_type();
+    match icmp_type {
+        _ if icmp_dest_reached_type.is_some() && icmp_type == icmp_dest_reached_type.unwrap() => {
+            if sender == dst {
+                Some(Result::new_filled(
+                    ReceiveStatus::SuccessDestinationFound,
+                    sender,
+                    time_receive,
+                ))
+            } else {
+                Some(Result::new_empty(ReceiveStatus::Error))
+            }
+        }
+        IcmpTypes::TimeExceeded => Some(Result::new_filled(
+            ReceiveStatus::SuccessContinue,
+            sender,
+            time_receive,
+        )),
+        _ => {
+            error!("Received ICMP packet, but type is '{:?}'", icmp_type);
+            Some(Result::new_empty(ReceiveStatus::Error))
+        }
     }
 }

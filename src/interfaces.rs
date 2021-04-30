@@ -1,5 +1,5 @@
+use pnet::datalink::{interfaces, NetworkInterface};
 use std::net::{IpAddr, Ipv4Addr};
-use pnet::{datalink::{interfaces, NetworkInterface}};
 
 pub fn get_source_ip() -> Ipv4Addr {
     let all_interfaces = interfaces();
@@ -27,8 +27,7 @@ pub fn addr_to_ipv4_addr(addr: IpAddr) -> Ipv4Addr {
     match addr {
         IpAddr::V4(ipv4) => ipv4,
         IpAddr::V6(_) => {
-            panic!("No supporto Ipv6o")
+            panic!("Tried to convert to IpAddr to Ipv6Addr, this is not supported currently.")
         }
     }
 }
-
